@@ -22,7 +22,7 @@ function loadLocalStorageData() {
   }
 }
 
-const buildNewCartItem = (cartItem) => {
+function buildNewCartItem(cartItem) {
   if (cartItem.quantity >= cartItem.unitsInStock) {
     return cartItem;
   }
@@ -37,62 +37,46 @@ const buildNewCartItem = (cartItem) => {
     updatedAt: cartItem.updatedAt,
     quantity: cartItem.quantity + 1,
   };
-};
+}
 
 function App() {
-  const [allStates, setAllStates] = useState({
-    products: [],
-    cartItems: [],
-    isLoading: false,
-    hasError: false,
-    loadingError: null,
-    newProductFormOpen: null,
-  });
+  const [products, setProducts] = useState([]);
+  const [cartItems, setCartItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [loadingError, setLoadingError] = useState(null);
+  const [newProductFormOpen, setNewProductFormOpen] = useState();
 
   useEffect(() => {
     const prevItems = loadLocalStorageData();
+
     if (!prevItems) {
-      setAllStates((prevState) => ({ ...prevState, isLoading: true }));
+      setIsLoading(true);
 
       api.getProducts().then((data) => {
-        setAllStates((prevState) => ({
-          ...prevState,
-          products: data,
-          isLoading: false,
-        }));
+        setProducts(data);
+        setIsLoading(false);
       });
       return;
     }
-    setAllStates((prevState) => ({
-      ...prevState,
-      cartItems: prevItems.cartItems,
-      products: prevItems.products,
-    }));
+
+    setCartItems(prevItems.cartItems);
+    setProducts(prevItems.products);
   }, []);
 
   useEffect(() => {
-    const { cartItems, products } = allStates;
-    if (products.length > 0) {
-      localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify({
-          cartItems,
-          products,
-        }),
-      );
-    }
-  }, [allStates.cartItems, allStates.products]);
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify({ cartItems, products }),
+    );
+  }, [cartItems, products]);
 
   const handleAddToCart = (productId) => {
-    const prevCartItem = allStates.cartItems.find(
-      (item) => item.id === productId,
-    );
-    const foundProduct = allStates.products.find(
-      (product) => product.id === productId,
-    );
+    const prevCartItem = cartItems.find((item) => item.id === productId);
+    const foundProduct = products.find((product) => product.id === productId);
 
     if (prevCartItem) {
-      const updatedCartItems = allStates.cartItems.map((item) => {
+      const updatedCartItems = cartItems.map((item) => {
         if (item.id !== productId) {
           return item;
         }
@@ -106,24 +90,19 @@ function App() {
           quantity: item.quantity + 1,
         };
       });
-      setAllStates((prevState) => ({
-        ...prevState,
-        cartItems: updatedCartItems,
-      }));
-
+      setCartItems(updatedCartItems);
       return;
     }
 
     const updatedProduct = buildNewCartItem(foundProduct);
 
-    setAllStates((prevState) => ({
-      ...prevState,
-      cartItems: [...prevState.cartItems, updatedProduct],
-    }));
+    setCartItems((prevState) => {
+      return [...prevState, updatedProduct];
+    });
   };
 
   const handleChange = (event, productId) => {
-    const updatedCartItems = allStates.cartItems.map((item) => {
+    const updatedCartItems = cartItems.map((item) => {
       if (item.id === productId && item.quantity <= item.unitsInStock) {
         return {
           ...item,
@@ -133,24 +112,17 @@ function App() {
 
       return item;
     });
-    setAllStates((prevState) => ({
-      ...prevState,
-      cartItems: updatedCartItems,
-    }));
+    setCartItems(updatedCartItems);
   };
 
   const handleRemove = (productId) => {
-    const updatedCartItems = allStates.cartItems.filter(
-      (item) => item.id !== productId,
-    );
-    setAllStates((prevState) => ({
-      ...prevState,
-      cartItems: updatedCartItems,
-    }));
+    const updatedCartItems = cartItems.filter((item) => item.id !== productId);
+
+    setCartItems(updatedCartItems);
   };
 
   const handleDownVote = (productId) => {
-    const updatedProducts = allStates.products.map((product) => {
+    const updatedProducts = products.map((product) => {
       if (
         product.id === productId &&
         product.votes.downVotes.currentValue <
@@ -170,14 +142,11 @@ function App() {
 
       return product;
     });
-    setAllStates((prevState) => ({
-      ...prevState,
-      products: updatedProducts,
-    }));
+    setProducts(updatedProducts);
   };
 
   const handleUpVote = (productId) => {
-    const updatedProducts = allStates.products.map((product) => {
+    const updatedProducts = products.map((product) => {
       if (
         product.id === productId &&
         product.votes.upVotes.currentValue < product.votes.upVotes.upperLimit
@@ -196,14 +165,11 @@ function App() {
 
       return product;
     });
-    setAllStates((prevState) => ({
-      ...prevState,
-      products: updatedProducts,
-    }));
+    setProducts(updatedProducts);
   };
 
   const handleSetFavorite = (productId) => {
-    const updatedProducts = allStates.products.map((product) => {
+    const updatedProducts = products.map((product) => {
       if (product.id === productId) {
         return {
           ...product,
@@ -214,20 +180,16 @@ function App() {
       return product;
     });
 
-    setAllStates((prevState) => ({
-      ...prevState,
-      products: updatedProducts,
-    }));
+    setProducts(updatedProducts);
   };
 
   const saveNewProduct = (newProduct) => {
-    setAllStates((prevState) => {
-      return { ...prevState, products: [...prevState.products, newProduct] };
+    setProducts((prevState) => {
+      return [newProduct, ...prevState];
     });
-    setAllStates((prevState) => ({
-      ...prevState,
-      newProductFormOpen: !prevState.newProductFormOpen,
-    }));
+    setNewProductFormOpen((prevState) => {
+      return !prevState;
+    });
   };
 
   return (
@@ -239,11 +201,11 @@ function App() {
           <Home
             {...routeProps}
             fullWidth
-            cartItems={allStates.cartItems}
-            products={allStates.products}
-            isLoading={allStates.isLoading}
-            hasError={allStates.hasError}
-            loadingError={allStates.loadingError}
+            cartItems={cartItems}
+            products={products}
+            isLoading={isLoading}
+            hasError={hasError}
+            loadingError={loadingError}
             handleDownVote={handleDownVote}
             handleUpVote={handleUpVote}
             handleSetFavorite={handleSetFavorite}
